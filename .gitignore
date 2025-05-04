@@ -1,5 +1,11 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+db/data/
+db/dc_data/
+db/data.db
+db/dc_data.db
+
+
 # dependencies
 /node_modules
 /.pnp

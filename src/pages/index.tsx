@@ -17,6 +17,7 @@ import ChatBox from "../components/ChatBox";
 import ChatHistory from "../components/ChatHistory";
 import SuggestedQueries from "../components/SuggestedQueries";
 import Logo from "@/components/Logo";
+import { ChartData } from "@/components/ChartRenderer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,6 +35,11 @@ interface Message {
   isUser?: boolean;
   sql?: string; // Add SQL query field for AI-generated queries
   formattedHtml?: string; // Add formatted HTML field for AI-enhanced responses
+  queryType?: string; // Add query type field
+  patientId?: string | null; // Add patient ID field, can be null
+  admissionId?: string | null; // Add admission ID field
+  chartData?: ChartData; // Add chart data field for visualization
+  needsGraph?: boolean; // Flag to indicate if the query requires a graph
 }
 
 export default function Home() {
@@ -41,6 +47,8 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [useAI, setUseAI] = useState<boolean>(true); // Default to using AI
+  const [currentPatientId, setCurrentPatientId] = useState<string | null>(null);
+  const [graphModeEnabled, setGraphModeEnabled] = useState<boolean>(false);
 
   const handleRoleChange = (
     _: React.MouseEvent<HTMLElement>,
@@ -55,22 +63,97 @@ export default function Home() {
     setUseAI(!useAI);
   };
 
-  const handleQuerySelected = (query: string) => {
+  const handleQuerySelected = (query: string, needsGraph?: boolean) => {
+    // If needsGraph is explicitly provided, use it, otherwise use the current app state
+    const useGraph = needsGraph !== undefined ? needsGraph : graphModeEnabled;
+
     // When a query chip is clicked, handle it as if the user typed and sent it
-    handleSendMessage(query);
+    handleSendMessage(query, undefined, useGraph);
   };
 
-  const handleSendMessage = async (message: string) => {
+  const handleGraphModeToggle = (enabled: boolean) => {
+    setGraphModeEnabled(enabled);
+  };
+
+  const handleNewQuery = () => {
+    // Reset the conversation
+    setMessages([]);
+    // Reset patient ID
+    setCurrentPatientId(null);
+    // Keep other settings like graph mode and role the same
+  };
+
+  const handleSendMessage = async (
+    message: string,
+    queryType?: string,
+    needsGraph?: boolean
+  ) => {
     console.log(`Message sent (as ${role}):`, message);
+    console.log(`Query type detected:`, queryType || "unknown");
+    console.log(`Needs graph:`, needsGraph || false);
 
     // Set loading state to true
     setIsLoading(true);
+
+    // Detect query type if not provided (for suggested queries)
+    let detectedQueryType = queryType;
+    if (!detectedQueryType && message.trim().length >= 15) {
+      try {
+        const typeResponse = await fetch("/api/query_type_detection", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: message }),
+        });
+
+        if (typeResponse.ok) {
+          const typeData = await typeResponse.json();
+          detectedQueryType = typeData.queryType;
+          console.log(
+            "Query type detected for suggested query:",
+            detectedQueryType
+          );
+        }
+      } catch (error) {
+        console.error("Error detecting query type for suggested query:", error);
+        // Continue with the query even if query type detection fails
+      }
+    }
+
+    // First, try to detect subject ID directly from the message
+    try {
+      const subjectIdResponse = await fetch("/api/detect-subject-id", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: message }),
+      });
+
+      if (subjectIdResponse.ok) {
+        const subjectIdData = await subjectIdResponse.json();
+        if (subjectIdData.subjectId) {
+          console.log(
+            "Subject ID detected from message:",
+            subjectIdData.subjectId
+          );
+          setCurrentPatientId(subjectIdData.subjectId);
+        }
+      }
+    } catch (error) {
+      console.error("Error detecting subject ID from message:", error);
+      // Continue with the query even if subject ID detection fails
+    }
 
     // Add the new message to the messages array
     const newMessage: Message = {
       text: message,
       timestamp: new Date(),
       isUser: true,
+      queryType: detectedQueryType, // Store the detected query type
+      patientId: currentPatientId, // Add current patient ID for context
+      needsGraph: needsGraph, // Store whether the query needs a graph
     };
 
     setMessages((prevMessages) => [...prevMessages, newMessage]);
@@ -87,7 +170,12 @@ export default function Home() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ query: message }),
+          body: JSON.stringify({
+            query: message,
+            queryType: detectedQueryType, // Pass the detected query type to the API
+            currentPatientId: currentPatientId, // Pass the current patient ID to the API
+            needsGraph: needsGraph, // Pass whether the query needs a graph to the API
+          }),
         });
 
         if (!response.ok) {
@@ -101,6 +189,19 @@ export default function Home() {
         console.log("AI-Generated SQL:", sql);
         console.log("API Response:", data);
         console.log("Formatted HTML:", responseJson.formattedHtml);
+        console.log("Chart Data:", responseJson.chartData);
+
+        // If this is a discharge summary and extractedSubjectId is available, update currentPatientId
+        if (
+          detectedQueryType === "discharge_summary" &&
+          responseJson.extractedSubjectId
+        ) {
+          console.log(
+            "Updating current patient ID for discharge summary:",
+            responseJson.extractedSubjectId
+          );
+          setCurrentPatientId(responseJson.extractedSubjectId);
+        }
       } else {
         // Use the original direct query approach
         // Parse the message for commands
@@ -138,39 +239,11 @@ export default function Home() {
         console.log("API Response:", data);
       }
 
-      // Format the response message based on data
-      let responseText = "";
-
-      if (data.length === 0) {
-        responseText = "No records found for your query.";
-      } else {
-        responseText = `Found ${data.length} records. Here's a sample:`;
-
-        // Add sample data (first 3 items)
-        const sample = data.slice(0, 3);
-        const keys = Object.keys(sample[0]);
-
-        // Format as a list of key-value pairs for the first few records
-        sample.forEach((item: Record<string, any>, index: number) => {
-          responseText += `\n\nRecord ${index + 1}:`;
-          keys.forEach((key) => {
-            responseText += `\n- ${key}: ${item[key]}`;
-          });
-        });
-
-        if (data.length > 3) {
-          responseText += "\n\n...and more records available.";
-        }
-      }
-
-      // Add SQL query info if AI was used
-      if (useAI && sql) {
-        responseText += "\n\nSQL Query Used:\n```sql\n" + sql + "\n```";
-      }
-
       // Add a system message with the API response
       const systemMessage: Message = {
-        text: responseText,
+        text: needsGraph
+          ? "Here is your graph: "
+          : "Here is your information: ",
         timestamp: new Date(),
         isUser: false,
         sql: sql, // Store the SQL query if it exists
@@ -178,6 +251,11 @@ export default function Home() {
           useAI && responseJson?.formattedHtml
             ? responseJson.formattedHtml
             : undefined, // Include formatted HTML if available
+        queryType: detectedQueryType, // Store the detected query type for context in responses
+        patientId: currentPatientId, // Add current patient ID for context
+        admissionId: responseJson?.extractedAdmissionId || null, // Add admission ID if available
+        chartData: responseJson?.chartData || undefined, // Include chart data if available
+        needsGraph: needsGraph, // Store whether the query needs a graph
       };
 
       setMessages((prevMessages) => [...prevMessages, systemMessage]);
@@ -191,6 +269,9 @@ export default function Home() {
         }`,
         timestamp: new Date(),
         isUser: false,
+        queryType: detectedQueryType, // Store the detected query type for context
+        patientId: currentPatientId, // Add current patient ID for context
+        admissionId: null, // No admission ID for error messages
       };
 
       setMessages((prevMessages) => [...prevMessages, errorMessage]);
@@ -316,12 +397,17 @@ export default function Home() {
               backgroundColor: "#e9f2ff",
               padding: "16px 0",
               width: "100%",
+              position: "relative",
             }}
           >
             <ChatBox
               onSendMessage={handleSendMessage}
+              onNewQuery={handleNewQuery}
               hasMessages={messages.length > 0}
               isLoading={isLoading}
+              currentPatientId={currentPatientId}
+              graphModeEnabled={graphModeEnabled}
+              onGraphModeToggle={handleGraphModeToggle}
             />
           </Box>
         </Box>

@@ -3,8 +3,8 @@ import pandas as pd
 import sqlite3
 
 # Path to your CSV folder and output DB file
-csv_dir = './data'
-sqlite_db = './data.db'
+csv_dir = './dc_data'
+sqlite_db = './dc_data.db'
 
 # Connect to SQLite database (it'll be created if it doesn't exist)
 conn = sqlite3.connect(sqlite_db)
