@@ -1,40 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# Hospital Data Analyzer
 
-## Getting Started
+This script recursively searches through a directory for .gz and .csv files that contain hospital data. It processes these files and uses OpenAI to analyze and interpret the data, generating useful descriptions and potential questions that healthcare professionals might ask about the data.
 
-First, run the development server:
+## Features
+
+- Recursively scans directories for .gz and .csv files
+- Unpacks .gz files and processes any CSV files inside
+- Reads CSV files and extracts the header and first 20 rows
+- Uses OpenAI to interpret the data and generate:
+  - A description of the data's purpose, format, and content
+  - A list of questions that doctors or hospital administrators might ask about the data
+- Saves analysis results as JSON files alongside the original data files
+
+## Requirements
+
+- Python 3.8 or higher
+- OpenAI API key
+- Dependencies:
+  - openai
+  - pandas
+  - and other standard libraries
+
+## Installation
+
+1. Make sure you have a Python virtual environment activated:
+
+   ```bash
+   source venv/bin/activate
+   ```
+
+2. Install the required dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Set your OpenAI API key as an environment variable:
+   ```bash
+   export OPENAI_API_KEY='your-api-key-here'
+   ```
+
+## Usage
+
+Run the script by providing a directory path as an argument:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+python hospital_data_analyzer.py /path/to/hospital/data
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The script will:
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+1. Recursively search for .gz and .csv files in the specified directory
+2. Unpack any .gz files it finds
+3. Analyze all CSV files (including those extracted from .gz files)
+4. Generate .analysis.json files containing descriptions and questions
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+## Example Output
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+For each CSV file processed, the script will generate a JSON file with the following structure:
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```json
+{
+  "description": "This dataset contains patient admission records including dates, diagnoses, and treatment details...",
+  "questions": [
+    "What is the average length of stay for patients with cardiovascular conditions?",
+    "How do readmission rates vary by age group and diagnosis?",
+    "Which treatments show the highest success rates for specific conditions?",
+    ...
+  ]
+}
+```
 
-## Learn More
+## Notes
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+- The script uses the OpenAI GPT-4 Turbo model by default. You may need to change this based on your API access.
+- Large CSV files are only analyzed based on their headers and first 20 rows to stay within API limits.
+- Make sure your OpenAI API key has sufficient quota for the number of files you plan to analyze.
