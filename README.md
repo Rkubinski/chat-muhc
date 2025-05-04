@@ -1,78 +1,139 @@
-# Hospital Data Analyzer
+# MUHC Clinical Data Chat Interface
 
-This script recursively searches through a directory for .gz and .csv files that contain hospital data. It processes these files and uses OpenAI to analyze and interpret the data, generating useful descriptions and potential questions that healthcare professionals might ask about the data.
+This repository contains a Next.js-based clinical data chat interface that allows healthcare professionals to query patient data using natural language. The system combines a React frontend with SQLite database integration and AI-powered chat functionality.
 
-## Features
+## Project Structure
 
-- Recursively scans directories for .gz and .csv files
-- Unpacks .gz files and processes any CSV files inside
-- Reads CSV files and extracts the header and first 20 rows
-- Uses OpenAI to interpret the data and generate:
-  - A description of the data's purpose, format, and content
-  - A list of questions that doctors or hospital administrators might ask about the data
-- Saves analysis results as JSON files alongside the original data files
+```
+.
+├── chat-muhc/                 # Main Next.js web application
+│   ├── src/                   # Source code for the web app
+│   │   ├── components/        # React components
+│   │   ├── pages/             # Next.js pages and API routes
+│   │   └── styles/            # CSS and styling
+│   ├── db/                    # Database files and import scripts (contact ryszard.kubinski@mail.mcgill.ca for access as files too big for upload)
+│   └── public/                # Static assets
+├── annotation_runs/           # Output from AI annotation processes
+├── datasets/                  # Clinical datasets
+├── scripts/                   # Utility scripts for data processing
+└── requirements.txt           # Python dependencies
+```
 
-## Requirements
+## Stack and Technologies
 
-- Python 3.8 or higher
+### Frontend
+
+- **Next.js**: React framework for the web application
+- **React**: UI library
+- **Material UI**: Component library with custom styling
+- **TypeScript**: Type-safe JavaScript
+
+### Backend
+
+- **Next.js API Routes**: API endpoints for data querying
+- **SQLite (better-sqlite3)**: Database for storing clinical data
+- **OpenAI API**: AI model integration for natural language processing
+
+### Data Processing
+
+- **Python**: Scripts for data analysis and processing
+- **Pandas**: Data manipulation and analysis
+
+## Setup and Installation
+
+### Prerequisites
+
+- Node.js 18.x or later
+- Python 3.9 or later
 - OpenAI API key
-- Dependencies:
-  - openai
-  - pandas
-  - and other standard libraries
 
-## Installation
+### Web Application Setup
 
-1. Make sure you have a Python virtual environment activated:
+1. Navigate to the chat-muhc directory:
 
    ```bash
-   source venv/bin/activate
+   cd chat-muhc
    ```
 
-2. Install the required dependencies:
+2. Install Node.js dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Create a `.env.local` file with your OpenAI API key:
+
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
+
+4. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+### Python Environment Setup
+
+1. Create and activate a virtual environment:
+
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+   ```
+
+2. Install Python dependencies:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Set your OpenAI API key as an environment variable:
-   ```bash
-   export OPENAI_API_KEY='your-api-key-here'
+3. Create a `.env` file with your OpenAI API key:
+
+   ```
+   OPENAI_API_KEY=your_api_key_here
    ```
 
-## Usage
+4. Test your environment setup:
+   ```bash
+   python test_env.py
+   ```
 
-Run the script by providing a directory path as an argument:
+## Database Setup
 
-```bash
-python hospital_data_analyzer.py /path/to/hospital/data
-```
+The application uses SQLite databases to store clinical data:
 
-The script will:
+1. The main database files are located in the `chat-muhc/db/` directory
+2. To import CSV data into the database, use the provided import scripts:
+   ```bash
+   cd chat-muhc/db
+   python import_csvs.py  # or node import_csvs.js
+   ```
 
-1. Recursively search for .gz and .csv files in the specified directory
-2. Unpack any .gz files it finds
-3. Analyze all CSV files (including those extracted from .gz files)
-4. Generate .analysis.json files containing descriptions and questions
+## Features
 
-## Example Output
+- **Natural Language Querying**: Ask questions about patient data in plain English
+- **Chat Interface**: Conversational UI for interacting with clinical data
+- **Discharge Summary Comparison**: Compare discharge summaries across patients
+- **Subject ID Detection**: Automatically detects when users are asking about specific patients
+- **Query Type Detection**: Classifies queries to provide appropriate responses
 
-For each CSV file processed, the script will generate a JSON file with the following structure:
+## Annotation Runs
 
-```json
-{
-  "description": "This dataset contains patient admission records including dates, diagnoses, and treatment details...",
-  "questions": [
-    "What is the average length of stay for patients with cardiovascular conditions?",
-    "How do readmission rates vary by age group and diagnosis?",
-    "Which treatments show the highest success rates for specific conditions?",
-    ...
-  ]
-}
-```
+The system includes functionality for running AI annotations on clinical data. Output from these annotation processes is stored in the `annotation_runs/` directory, with each run timestamped.
 
-## Notes
+## Development
 
-- The script uses the OpenAI GPT-4 Turbo model by default. You may need to change this based on your API access.
-- Large CSV files are only analyzed based on their headers and first 20 rows to stay within API limits.
-- Make sure your OpenAI API key has sufficient quota for the number of files you plan to analyze.
+### Adding New Components
+
+Place new React components in the `chat-muhc/src/components/` directory.
+
+### API Routes
+
+Backend API endpoints are located in `chat-muhc/src/pages/api/`.
+
+### Database Schema
+
+The database schema is documented in `chat-muhc/db/schema.md`.
